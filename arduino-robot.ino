@@ -23,6 +23,8 @@
 
 SoftwareSerial mySerial(4,2);
 
+int lastDistances[3] = {500, 500, 500};
+
 /* BLUETOOTH VARIABLES */
 byte cmd[8] = {0, 0, 0, 0, 0, 0, 0, 0};                 // bytes received
 byte buttonStatus = 0;                                  // first Byte sent to Android device
@@ -79,14 +81,72 @@ void loop() {
   }
   else { // robot will be controlled by flash
     flashControl();
+
+    int *distances = (int *) malloc (3*sizeof(int));
+    int *trends = (int *) malloc (3*sizeof(int));
+    
+    readDistances( distances );
+
+    // calculate distance trends
+    // -1 : descending
+    //  0 : stationary
+    // +1 : ascending
+
+    int bestTrend = -1;
+    int bestDirection = -1;
+    
+    for(int i=0;i<3;i++) {
+      if( distances[i] > 0 && distances[i] < 300 ) {
+        trends[i] = distances[i] / lastDistances[i];
+
+        if( trends[i] > bestTrend ) {
+          bestTrend = trends[i];
+          bestDirection = i;
+        }
+        
+        lastDistances[i] = distances[i];
+      }
+    }
+
+    switch( bestTrend ) {
+      case -1:
+        goBack();
+        break;
+      case 0:
+        goLeft();
+        break;
+      case 2:
+        goRight();
+        break;
+      default:
+        goFwd();
+        break;
+    }
+
+
+    /*
     if( digitalRead(PROXI_PIN) ) { // no obstacle found, move foward
       goFwd();
     }
     else { // obstacle found
       handleObstacle();
     }
+    */
+    
     delay(250);
   }
+}
+
+void readDistances( int *distances ) {
+  distances[0] = readDistanceAverage(5,1); // left
+  distances[1] = readDistanceAverage(5,2); // center
+  distances[2] = readDistanceAverage(5,4); // right
+
+  /*
+  if( (distances[0]>0 && distances[0]<30) || (distances[0]>0 && distances[0]<30) || (distances[0]>0 && distances[0]<30) ) {
+    Stop();
+  }
+  */
 }
 
 void goBack() { go(-255,-255); }
