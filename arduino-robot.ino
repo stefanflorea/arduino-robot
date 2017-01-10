@@ -42,8 +42,9 @@ int lightThreshold   = 750;
 // start with light sensor
 int useFlash         = 1;
 
-// start with joystick control
-int useJoystick      = 1;
+// joystick control
+int useJoystick         = 0;
+int isStartedByJoystick = 0;
 
 // light sensor variables
 int flashNumber      = 0;
@@ -76,11 +77,7 @@ void setup() {
 }
 
 void loop() {
-  if( useJoystick ) { // robot will be controlled by joystick
-    joystickControl();
-  }
-  else { // robot will be controlled by flash
-    flashControl();
+  if( isStartedByJoystick ) {
 
     int *distances = (int *) malloc (3*sizeof(int));
     int *trends = (int *) malloc (3*sizeof(int));
@@ -108,7 +105,7 @@ void loop() {
       }
     }
 
-    switch( bestTrend ) {
+    switch( bestDirection ) {
       case -1:
         goBack();
         break;
@@ -135,6 +132,11 @@ void loop() {
     
     delay(250);
   }
+
+  else if( useJoystick ) {
+    joystickControl();
+  }
+  
 }
 
 void readDistances( int *distances ) {
@@ -428,10 +430,17 @@ void getJoystickState(byte data[8])    {
 void getButtonState(int bStatus)  {
   switch (bStatus) {
       // -----------------  BUTTON #1  -----------------------
+      // Push to start using AI
+      // Push again to stop using AI
     case 'A':
       buttonStatus |= B000001;        // ON
       Serial.println("\n** Button_1: ON **");
-      // your code...
+
+      Stop();
+      delay(turnDelay);
+      useJoystick = 0; buttonStatus &= B111011; //also turn off button 3
+      isStartedByJoystick = 1;
+      
       displayStatus = "LED <ON>";
       Serial.println(displayStatus);
       digitalWrite(ledPin, HIGH);
@@ -439,7 +448,12 @@ void getButtonState(int bStatus)  {
     case 'B':
       buttonStatus &= B111110;        // OFF
       Serial.println("\n** Button_1: OFF **");
-      // your code...
+
+      Stop();
+      delay(turnDelay);
+      isStartedByJoystick = 0;
+
+      
       displayStatus = "LED <OFF>";
       Serial.println(displayStatus);
       digitalWrite(ledPin, LOW);
@@ -462,17 +476,28 @@ void getButtonState(int bStatus)  {
       break;
 
       // -----------------  BUTTON #3  -----------------------
+      // Push to start using joystick
+      // Push again to stop using joystick
     case 'E':
       buttonStatus |= B000100;        // ON
       Serial.println("\n** Button_3: ON **");
-      // your code...
+
+      Stop();
+      delay(turnDelay);
+      isStartedByJoystick = 0; buttonStatus &= B111110; // also turn off button 1
+      useJoystick = 1;
+      
       displayStatus = "Motor #1 enabled"; // Demo text message
       Serial.println(displayStatus);
       break;
     case 'F':
       buttonStatus &= B111011;      // OFF
       Serial.println("\n** Button_3: OFF **");
-      // your code...
+
+      Stop();
+      delay(turnDelay);
+      useJoystick = 0;
+
       displayStatus = "Motor #1 stopped";
       Serial.println(displayStatus);
       break;
