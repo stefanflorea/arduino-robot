@@ -13,7 +13,7 @@
 #define    MOTOR1_PIN1  6
 #define    MOTOR1_PIN2  9
 #define    PROXI_PIN    7
-#define    LIGHT_PIN    0    
+#define    LIGHT_PIN    0
 /* END PIN DEFINITIONS */
 
 // 0 - light pin
@@ -77,6 +77,9 @@ void setup() {
 }
 
 void loop() {
+  isStartedByJoystick = 1;
+  joystickControl();
+  
   if( isStartedByJoystick ) {
 
     int *distances = (int *) malloc (3*sizeof(int));
@@ -85,9 +88,9 @@ void loop() {
     readDistances( distances );
 
     // calculate distance trends
-    // -1 : descending
-    //  0 : stationary
-    // +1 : ascending
+    // -1 : initial
+    // (0,1) : obstacle is getting closer
+    // (1,) : obstacle is farther
 
     int bestTrend = -1;
     int bestDirection = -1;
@@ -105,8 +108,18 @@ void loop() {
       }
     }
 
+    if( lastDistances[0]<30 && lastDistances[1]<30 && lastDistances[2]<30 ) {
+      bestDirection = -1;
+    }
+
+    if( lastDistances[0] == lastDistances[1] == lastDistances[2] ) {
+      bestDirection = 1;
+    }
+
     switch( bestDirection ) {
       case -1:
+        Stop();
+        delay(turnDelay);
         goBack();
         break;
       case 0:
@@ -130,11 +143,11 @@ void loop() {
     }
     */
     
-    delay(250);
+    delay(500);
   }
 
   else if( useJoystick ) {
-    joystickControl();
+    //joystickControl();
   }
   
 }
@@ -347,9 +360,9 @@ void sendBlueToothData()  {
 
     mySerial.print((char)STX);                                             // Start of Transmission
     mySerial.print(getButtonStatusString());  mySerial.print((char)0x1);   // buttons status feedback
-    mySerial.print(GetdataInt1());            mySerial.print((char)0x4);   // datafield #1
-    mySerial.print(GetdataFloat2());          mySerial.print((char)0x5);   // datafield #2
-    mySerial.print(displayStatus);                                         // datafield #3
+    mySerial.print(lastDistances[0]);            mySerial.print((char)0x4);   // datafield #1
+    mySerial.print(lastDistances[1]);          mySerial.print((char)0x5);   // datafield #2
+    mySerial.print(lastDistances[2]);                                         // datafield #3
     mySerial.print((char)ETX);                                             // End of Transmission
   }
 }
@@ -362,20 +375,6 @@ String getButtonStatusString()  {
     else                                  bStatus += "0";
   }
   return bStatus;
-}
-
-int GetdataInt1()  {              // Data dummy values sent to Android device for demo purpose
-  static int i = -30;             // Replace with your own code
-  i ++;
-  if (i > 0)    i = -30;
-  return i;
-}
-
-float GetdataFloat2()  {           // Data dummy values sent to Android device for demo purpose
-  static float i = 50;             // Replace with your own code
-  i -= .5;
-  if (i < -50)    i = 50;
-  return i;
 }
 
 void getJoystickState(byte data[8])    {
@@ -557,6 +556,12 @@ int readDistanceAverage(int count, int pin) {
     sum = sum + distance;
     delay(1);
   }
-  return (int) (sum/count);
+
+  int m = (int) (sum/count);
+  
+  if( m > 100 && m < 200 ) return 100;
+  if( m > 200 ) return 200;
+  
+  return m;
 }
 
