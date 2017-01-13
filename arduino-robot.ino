@@ -23,7 +23,7 @@
 
 SoftwareSerial mySerial(4,2);
 
-int lastDistances[3] = {500, 500, 500};
+int lastDistances[3] = {300, 300, 300};
 
 /* BLUETOOTH VARIABLES */
 byte cmd[8] = {0, 0, 0, 0, 0, 0, 0, 0};                 // bytes received
@@ -85,54 +85,65 @@ void loop() {
     int *distances = (int *) malloc (3*sizeof(int));
     int *trends = (int *) malloc (3*sizeof(int));
     
-    readDistances( distances );
-
-    // calculate distance trends
-    // -1 : initial
-    // (0,1) : obstacle is getting closer
-    // (1,) : obstacle is farther
-
-    int bestTrend = -1;
+    int bestDistance = -1;
     int bestDirection = -1;
+
+    while( bestDirection != 1 ) {
+
+      readDistances( distances );
     
-    for(int i=0;i<3;i++) {
-      if( distances[i] > 0 && distances[i] < 300 ) {
-        trends[i] = distances[i] / lastDistances[i];
-
-        if( trends[i] > bestTrend ) {
-          bestTrend = trends[i];
-          bestDirection = i;
+      Serial.print("left: ");
+      Serial.println(distances[0]);
+      Serial.print("right: ");
+      Serial.println(distances[2]);
+      Serial.print("forward: ");
+      Serial.println(distances[1]);
+    
+      for(int i=0;i<3;i++) {
+        if( distances[i] > 0 && distances[i] < 300 ) {
+          
+          if( distances[i] > bestDistance ) {
+            bestDistance = distances[i]; //trends[i];
+            bestDirection = i;
+          }
+          
+          lastDistances[i] = distances[i];
         }
-        
-        lastDistances[i] = distances[i];
       }
+  
+      if( distances[0]<30 && distances[1]<30 && distances[2]<30 ) {
+        bestDirection = -1;
+      }
+  
+      if( distances[0] == distances[1] == distances[2] ) {
+        bestDirection = 1;
+      }
+
+      
+      Serial.print("best direction: ");
+      Serial.println(bestDirection);
+  
+      switch( bestDirection ) {
+        case -1:
+          Stop();
+          delay(turnDelay);
+          goBack();
+          break;
+        case 0:
+          goLeft();
+          break;
+        case 2:
+          goRight();
+          break;
+        default:
+          goFwd();
+          break;
+      }
+
+      delay(250);
     }
 
-    if( lastDistances[0]<30 && lastDistances[1]<30 && lastDistances[2]<30 ) {
-      bestDirection = -1;
-    }
-
-    if( lastDistances[0] == lastDistances[1] == lastDistances[2] ) {
-      bestDirection = 1;
-    }
-
-    switch( bestDirection ) {
-      case -1:
-        Stop();
-        delay(turnDelay);
-        goBack();
-        break;
-      case 0:
-        goLeft();
-        break;
-      case 2:
-        goRight();
-        break;
-      default:
-        goFwd();
-        break;
-    }
-
+    goFwd();
 
     /*
     if( digitalRead(PROXI_PIN) ) { // no obstacle found, move foward
@@ -143,7 +154,7 @@ void loop() {
     }
     */
     
-    delay(500);
+    delay(2000);
   }
 
   else if( useJoystick ) {
@@ -384,6 +395,10 @@ void getJoystickState(byte data[8])    {
   joyY = joyY - 200;                                                  // transmitting negative numbers
 
   if (joyX < -100 || joyX > 100 || joyY < -100 || joyY > 100)     return; // commmunication error
+
+  if( !useJoystick ) {
+    return;
+  }
 
   // Your code here ...
   Serial.print("Joystick position:  ");
